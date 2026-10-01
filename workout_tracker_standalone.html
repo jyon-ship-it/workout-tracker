@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PPL Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --border: #2a2a2a;
+    --push: #00c9a7;
+    --pull: #4f8ef7;
+    --legs: #f7724f;
+    --core: #f7c94f;
+    --text: #e8e8e8;
+    --muted: #6b6b6b;
+    --label: #999;
+    --green: #35d47a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 24px 14px 80px;
+  }
+  h1 { font-family:'Bebas Neue',sans-serif; letter-spacing:3px; }
+
+  .header { text-align:center; margin-bottom:28px; }
+  .header h1 { font-size:clamp(2rem,7vw,3rem); color:#fff; }
+  .header p { color:var(--muted); font-size:0.78rem; letter-spacing:2px; text-transform:uppercase; margin-top:6px; font-weight:500; }
+
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* Schedule editor */
+  .schedule-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 24px;
+  }
+  .schedule-card h3 {
+    font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 14px; font-weight: 600;
+  }
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  @media (max-width:600px){ .schedule-grid{ grid-template-columns: repeat(4,1fr); } }
+  .schedule-slot { text-align:center; }
+  .schedule-slot label {
+    display:block; font-size:0.62rem; color:var(--muted);
+    letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; font-weight:600;
+  }
+  .schedule-slot select {
+    width:100%; background:#111; border:1px solid #2a2a2a; color:#ddd;
+    border-radius:6px; padding:8px 4px; font-size:0.72rem; font-weight:600;
+    text-align:center; appearance:none;
+  }
+  .schedule-slot select.push { border-color: var(--push); color: var(--push); }
+  .schedule-slot select.pull { border-color: var(--pull); color: var(--pull); }
+  .schedule-slot select.legs { border-color: var(--legs); color: var(--legs); }
+  .schedule-slot select.core { border-color: var(--core); color: var(--core); }
+  .schedule-slot select.rest { border-color: #333; color: #555; }
+
+  /* Tabs */
+  .tabs {
+    display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;
+  }
+  .tab-btn {
+    background:#141414; border:1px solid var(--border); color:#888;
+    padding:9px 18px; border-radius:8px; font-size:0.8rem; font-weight:700;
+    letter-spacing:1px; cursor:pointer; text-transform:uppercase;
+    font-family:'DM Sans',sans-serif; transition: all .15s;
+  }
+  .tab-btn.active.push { background:#00c9a71a; border-color:var(--push); color:var(--push); }
+  .tab-btn.active.pull { background:#4f8ef71a; border-color:var(--pull); color:var(--pull); }
+  .tab-btn.active.legs { background:#f7724f1a; border-color:var(--legs); color:var(--legs); }
+  .tab-btn.active.core { background:#f7c94f1a; border-color:var(--core); color:var(--core); }
+
+  /* Date + save bar */
+  .control-bar {
+    display:flex; align-items:center; gap:12px; margin-bottom:20px;
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:12px 16px; flex-wrap:wrap;
+  }
+  .control-bar input[type=date] {
+    background:#111; border:1px solid #2a2a2a; color:#ddd; border-radius:6px;
+    padding:8px 10px; font-size:0.82rem; font-family:'DM Sans',sans-serif;
+  }
+  .control-bar .spacer { flex:1; }
+  .btn {
+    border:none; border-radius:7px; padding:9px 18px; font-size:0.78rem;
+    font-weight:700; letter-spacing:0.5px; cursor:pointer; font-family:'DM Sans',sans-serif;
+    text-transform:uppercase; transition: transform .1s, opacity .1s;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-save { background: var(--green); color:#04170a; }
+  .btn-save:hover { opacity:0.9; }
+  .btn-history { background:#222; color:#bbb; border:1px solid #333; }
+  .save-status { font-size:0.72rem; color:var(--green); font-weight:600; opacity:0; transition:opacity .3s; }
+  .save-status.show { opacity:1; }
+
+  /* Day card / exercise rows */
+  .day-card { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:16px; }
+  .day-card-head {
+    padding:16px 20px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border);
+  }
+  .day-card-head h2 { font-size:1.4rem; letter-spacing:2px; }
+  .day-card-head .muscles { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:500; }
+  .accent { width:3px; height:40px; border-radius:2px; margin-left:auto; }
+
+  .push-c { color: var(--push); } .push-bg .accent { background: var(--push); }
+  .pull-c { color: var(--pull); } .pull-bg .accent { background: var(--pull); }
+  .legs-c { color: var(--legs); } .legs-bg .accent { background: var(--legs); }
+  .core-c { color: var(--core); } .core-bg .accent { background: var(--core); }
+
+  .exercise-block { border-bottom:1px solid #1f1f1f; padding:16px 20px; }
+  .exercise-block:last-child { border-bottom:none; }
+
+  .ex-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:10px; flex-wrap:wrap; }
+  .ex-name { font-weight:700; font-size:0.95rem; color:#f2f2f2; }
+  .ex-note { font-size:0.72rem; color:var(--muted); margin-top:3px; line-height:1.5; max-width:480px; }
+  .ex-target {
+    font-size:0.7rem; color:#888; background:#111; border-radius:6px; padding:4px 10px;
+    white-space:nowrap; font-weight:600; flex-shrink:0;
+  }
+
+  .sets-table { width:100%; border-collapse:collapse; }
+  .sets-table th {
+    font-size:0.6rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
+    text-align:center; padding-bottom:6px; font-weight:600;
+  }
+  .sets-table th:first-child { text-align:left; }
+  .set-row td { padding: 4px 4px; }
+  .set-num {
+    width:22px; height:22px; border-radius:50%; background:#111; color:#777;
+    display:flex; align-items:center; justify-content:center; font-size:0.68rem; font-weight:700;
+  }
+  .set-row input {
+    width:100%; background:#111; border:1px solid #2a2a2a; color:#eee;
+    border-radius:6px; padding:7px 6px; font-size:0.82rem; text-align:center;
+    font-family:'DM Sans',sans-serif; font-weight:600;
+  }
+  .set-row input:focus { outline:none; border-color:#555; }
+  .set-row input::placeholder { color:#444; font-weight:400; }
+  .col-weight, .col-reps { width:78px; }
+  .col-remove { width:28px; }
+  .remove-set {
+    background:none; border:none; color:#553; cursor:pointer; font-size:1rem; padding:0;
+  }
+  .add-set-btn {
+    margin-top:8px; background:none; border:1px dashed #333; color:#666;
+    font-size:0.7rem; padding:5px 12px; border-radius:6px; cursor:pointer;
+    font-family:'DM Sans',sans-serif; letter-spacing:0.5px;
+  }
+  .add-set-btn:hover { border-color:#555; color:#999; }
+
+  .last-session {
+    font-size:0.68rem; color:#555; margin-top:6px; font-style:italic;
+  }
+
+  /* History panel */
+  .history-panel {
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin-bottom:16px; display:none;
+  }
+  .history-panel.show { display:block; }
+  .history-panel h3 { font-size:0.85rem; letter-spacing:2px; text-transform:uppercase; color:#999; margin-bottom:14px; }
+  .history-entry {
+    padding:12px 14px; background:#111; border-radius:8px; margin-bottom:8px;
+    cursor:pointer; border:1px solid #222; transition: border-color .15s;
+  }
+  .history-entry:hover { border-color:#444; }
+  .history-entry .h-date { font-weight:700; font-size:0.85rem; color:#ddd; }
+  .history-entry .h-summary { font-size:0.72rem; color:var(--muted); margin-top:3px; }
+  .empty-history { color:var(--muted); font-size:0.8rem; text-align:center; padding:20px 0; }
+
+  .footer-note { text-align:center; color:var(--muted); font-size:0.72rem; margin-top:32px; letter-spacing:0.5px; }
+  .loading { text-align:center; color:var(--muted); padding:40px; font-size:0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PPL Tracker</h1>
+  <p>Editable schedule · live set logging</p>
+</div>
+
+<div class="wrap">
+
+  <div class="schedule-card">
+    <h3>Weekly Schedule — Tap to Reassign</h3>
+    <div class="schedule-grid" id="scheduleGrid"></div>
+  </div>
+
+  <div class="tabs" id="tabBar">
+    <button class="tab-btn active push" data-type="push">Push</button>
+    <button class="tab-btn pull" data-type="pull">Pull</button>
+    <button class="tab-btn legs" data-type="legs">Legs</button>
+    <button class="tab-btn core" data-type="core">Core</button>
+  </div>
+
+  <div class="control-bar">
+    <input type="date" id="logDate">
+    <span class="save-status" id="saveStatus">✓ Saved</span>
+    <div class="spacer"></div>
+    <button class="btn btn-history" id="historyBtn">History</button>
+    <button class="btn btn-save" id="saveBtn">Save Log</button>
+  </div>
+
+  <div class="history-panel" id="historyPanel">
+    <h3 id="historyTitle">Push — History</h3>
+    <div id="historyList"></div>
+  </div>
+
+  <div id="dayContent"><div class="loading">Loading…</div></div>
+
+  <p class="footer-note">Data saved to your device · switch tabs to log Push / Pull / Legs / Core separately</p>
+</div>
+
+<script>
+// ---- Standalone storage shim (uses browser localStorage instead of Claude's artifact storage) ----
+// Same get/set/delete/list interface, so nothing else in the app needs to change.
+const STORAGE_PREFIX = 'ppltracker:';
+
+window.storage = {
+  async get(key, shared=false) {
+    const fullKey = STORAGE_PREFIX + (shared ? 'shared:' : 'priv:') + key;
+    const raw = localStorage.getItem(fullKey);
+    if (raw === null) throw new Error('not found');
+    return { key, value: raw, shared };
+  },
+  async set(key, value, shared=false) {
+    const fullKey = STORAGE_PREFIX + (shared ? 'shared:' : 'priv:') + key;
+    localStorage.setItem(fullKey, value);
+    return { key, value, shared };
+  },
+  async delete(key, shared=false) {
+    const fullKey = STORAGE_PREFIX + (shared ? 'shared:' : 'priv:') + key;
+    localStorage.removeItem(fullKey);
+    return { key, deleted: true, shared };
+  },
+  async list(prefix='', shared=false) {
+    const scoped = STORAGE_PREFIX + (shared ? 'shared:' : 'priv:') + prefix;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(scoped)) {
+        keys.push(k.slice(STORAGE_PREFIX.length + (shared ? 7 : 5)));
+      }
+    }
+    return { keys, prefix, shared };
+  }
+};
+</script>
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const TYPE_META = {
+  push: { label:'Push', muscles:'Chest · Shoulders · Triceps' },
+  pull: { label:'Pull', muscles:'Back · Biceps · Rear Delts' },
+  legs: { label:'Legs', muscles:'Quads · Hamstrings · Glutes · Calves' },
+  core: { label:'Core', muscles:'McGill Big 3 + Progressions' },
+  rest: { label:'Rest', muscles:'' }
+};
+
+const PLAN = {
+  push: [
+    { name:'Bench Press', sets:4, reps:'4-6', rest:'3 min', note:'Pinky on rings · shoulder blades retracted · bar touches chest' },
+    { name:'Incline Dumbbell Press', sets:3, reps:'8-10', rest:'2-3 min', note:'15-30° bench angle · elbows slightly tucked' },
+    { name:'Standing Overhead Press', sets:3, reps:'8-10', rest:'2 min', note:'Core braced · no leg momentum · straight bar path' },
+    { name:'Lateral Raises', sets:3, reps:'8-12', rest:'45-60s', note:'2 sets cable lean-away + 1 set dumbbell' },
+    { name:'Overhead Rope Extensions', sets:3, reps:'12-15', rest:'1.5 min', note:'Split stance · elbows locked · press apart at end' },
+    { name:'Bar Tricep Pushdowns', sets:2, reps:'8-12', rest:'1.5 min', note:'Overhand grip · no momentum · elbows locked' }
+  ],
+  pull: [
+    { name:'Weighted Pull-Ups (RPT)', sets:3, reps:'4-6/6-8/8-10', rest:'2.5-3 min', note:'Thumbless grip · pull with elbows · eyes over bar' },
+    { name:'Chest-Supported Row', sets:3, reps:'6-8', rest:'2 min', note:'Pull with elbows · squeeze shoulder blades' },
+    { name:'Lat Pulldown', sets:3, reps:'10-12', rest:'2 min', note:'Slightly wider than shoulder-width · slight lean back' },
+    { name:'Kneeling Face Pulls', sets:3, reps:'10-15', rest:'1.5 min', note:'Upper traps relaxed · fists toward ceiling at end' },
+    { name:'Incline Dumbbell Curls', sets:3, reps:'8-10', rest:'1.5-2 min', note:'30° bench · arms hang straight · elbows locked' },
+    { name:'Hammer Curls', sets:2, reps:'8-10', rest:'1.5 min', note:'Neutral grip · alternate arms · no elbow swing' }
+  ],
+  legs: [
+    { name:'Back Squat', sets:4, reps:'6-8 / slow', rest:'3 min', note:'3 sets 6-8, last set 4s slow descent · squat to parallel' },
+    { name:'Deadlift (Conventional)', sets:3, reps:'6-8', rest:'3 min', note:'Bar over mid-foot · straight back · vertical bar path' },
+    { name:'Barbell Hip Thrust', sets:3, reps:'8-12', rest:'2 min', note:'Upper back on bench · shins vertical at top' },
+    { name:'Bulgarian Split Squat', sets:3, reps:'8-10/leg', rest:'45-60s', note:'Foot far = glutes · foot close = quads' },
+    { name:'Single Leg Weighted Calf Raise', sets:3, reps:'6-8', rest:'1-1.5 min', note:'Full ROM · pause at top and bottom' },
+    { name:'Seated Weighted Calf Raise', sets:2, reps:'10-15', rest:'1-1.5 min', note:'Pause at bottom · full ROM' }
+  ],
+  core: [
+    { name:'McGill Curl-Up', sets:3, reps:'5 (8-10s hold)', rest:'45s', note:'Phase 1 · One knee bent · lift head/shoulders 2-3in · NO full sit-up' },
+    { name:'Bird Dog', sets:3, reps:'5/side (8-10s hold)', rest:'45s', note:'Phase 1 · Opposite arm+leg extended · spine neutral' },
+    { name:'Side Plank', sets:3, reps:'20-30s/side', rest:'45s', note:'Phase 1 · Elbow under shoulder · hips stacked' },
+    { name:'Dead Bug', sets:3, reps:'6-8/side', rest:'60s', note:'Phase 2 · Back stays flat entire rep · slow controlled' },
+    { name:'Plank', sets:3, reps:'25-40s hold', rest:'60s', note:'Phase 2 · Straight line · squeeze glutes+abs' },
+    { name:'Pallof Press', sets:3, reps:'10-12/side', rest:'60s', note:'Phase 3 · Anti-rotation · resist twisting' },
+    { name:'Bicycle Crunch', sets:3, reps:'10-12/side', rest:'60s', note:'Phase 3 · Slow controlled · elbow to opposite knee' },
+    { name:'Ab Wheel Rollout', sets:3, reps:'6-10', rest:'90s', note:'Phase 3 · From knees · only as far as back stays flat' }
+  ]
+};
+
+let schedule = { Mon:'push', Tue:'rest', Wed:'pull', Thu:'rest', Fri:'legs', Sat:'rest', Sun:'rest' };
+let currentType = 'push';
+let currentDate = new Date().toISOString().slice(0,10);
+let logCache = {}; // exerciseName -> [{weight,reps}]
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+async function loadSchedule(){
+  try {
+    const r = await window.storage.get('schedule', false);
+    if (r && r.value) schedule = JSON.parse(r.value);
+  } catch(e) { /* use default */ }
+  renderSchedule();
+}
+
+async function saveSchedule(){
+  try { await window.storage.set('schedule', JSON.stringify(schedule), false); }
+  catch(e) { console.error('schedule save failed', e); }
+}
+
+function renderSchedule(){
+  const grid = document.getElementById('scheduleGrid');
+  grid.innerHTML = '';
+  DAYS.forEach(day => {
+    const slot = document.createElement('div');
+    slot.className = 'schedule-slot';
+    const label = document.createElement('label');
+    label.textContent = day;
+    const select = document.createElement('select');
+    select.className = schedule[day];
+    ['push','pull','legs','core','rest'].forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = TYPE_META[t].label;
+      if (schedule[day] === t) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', () => {
+      schedule[day] = select.value;
+      select.className = select.value;
+      saveSchedule();
+    });
+    slot.appendChild(label);
+    slot.appendChild(select);
+    grid.appendChild(slot);
+  });
+}
+
+async function switchTab(type){
+  if (type === currentType) return;
+  await autoSaveIfNeeded();
+  currentType = type;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active');
+    if (b.dataset.type === type) b.classList.add('active');
+  });
+  document.getElementById('historyPanel').classList.remove('show');
+  await loadLogForDate();
+}
+
+// Saves whatever is currently on screen (if any exercise blocks exist)
+// without changing UI state — used before switching tabs/dates so nothing is lost.
+async function autoSaveIfNeeded(){
+  const blocks = document.querySelectorAll('.exercise-block');
+  if (!blocks.length) return;
+  try {
+    await saveCurrentLog(true);
+  } catch(e) {
+    console.error('auto-save failed', e);
+  }
+}
+
+async function loadLogForDate(){
+  document.getElementById('dayContent').innerHTML = '<div class="loading">Loading…</div>';
+  const key = `log:${currentType}:${currentDate}`;
+  logCache = {};
+  try {
+    const r = await window.storage.get(key, false);
+    if (r && r.value) logCache = JSON.parse(r.value);
+  } catch(e) { /* no log yet for this date */ }
+  await renderDay();
+}
+
+async function getLastSession(exerciseName){
+  try {
+    const listRes = await window.storage.list(`log:${currentType}:`, false);
+    if (!listRes || !listRes.keys) return null;
+    const dates = listRes.keys
+      .map(k => k.split(':')[2])
+      .filter(d => d && d < currentDate)
+      .sort()
+      .reverse();
+    for (const d of dates) {
+      const r = await window.storage.get(`log:${currentType}:${d}`, false);
+      if (r && r.value) {
+        const data = JSON.parse(r.value);
+        if (data[exerciseName] && data[exerciseName].length) {
+          return { date: d, sets: data[exerciseName] };
+        }
+      }
+    }
+  } catch(e) { return null; }
+  return null;
+}
+
+async function renderDay(){
+  const container = document.getElementById('dayContent');
+  const exercises = PLAN[currentType];
+  const meta = TYPE_META[currentType];
+
+  const card = document.createElement('div');
+  card.className = `day-card ${currentType}-bg`;
+  card.innerHTML = `
+    <div class="day-card-head">
+      <div>
+        <h2 class="${currentType}-c">${meta.label}</h2>
+        <div class="muscles">${meta.muscles}</div>
+      </div>
+      <div class="accent"></div>
+    </div>
+  `;
+
+  for (const ex of exercises) {
+    const savedSets = logCache[ex.name] || [];
+    const numRows = Math.max(ex.sets, savedSets.length);
+
+    const block = document.createElement('div');
+    block.className = 'exercise-block';
+    block.dataset.exercise = ex.name;
+
+    block.innerHTML = `
+      <div class="ex-top">
+        <div>
+          <div class="ex-name">${ex.name}</div>
+          <div class="ex-note">${ex.note}</div>
+        </div>
+        <div class="ex-target">${ex.sets} sets × ${ex.reps} · rest ${ex.rest}</div>
+      </div>
+      <table class="sets-table">
+        <thead>
+          <tr><th>Set</th><th>Weight</th><th>Reps</th><th></th></tr>
+        </thead>
+        <tbody class="set-rows"></tbody>
+      </table>
+      <button class="add-set-btn" type="button">+ Add Set</button>
+      <div class="last-session-slot"></div>
+    `;
+
+    const tbody = block.querySelector('.set-rows');
+    for (let i = 0; i < numRows; i++) {
+      addSetRow(tbody, i+1, savedSets[i]);
+    }
+
+    block.querySelector('.add-set-btn').addEventListener('click', () => {
+      const rowCount = tbody.querySelectorAll('.set-row').length;
+      addSetRow(tbody, rowCount+1, null);
+    });
+
+    card.appendChild(block);
+  }
+
+  container.innerHTML = '';
+  container.appendChild(card);
+
+  // async-load last session hints without blocking render
+  for (const ex of exercises) {
+    getLastSession(ex.name).then(last => {
+      if (!last) return;
+      const block = card.querySelector(`.exercise-block[data-exercise="${CSS.escape(ex.name)}"]`);
+      if (!block) return;
+      const slot = block.querySelector('.last-session-slot');
+      const summary = last.sets.map(s => `${s.weight||'–'}×${s.reps||'–'}`).join(', ');
+      slot.textContent = `Last (${last.date}): ${summary}`;
+    });
+  }
+}
+
+function addSetRow(tbody, setNum, data){
+  const tr = document.createElement('tr');
+  tr.className = 'set-row';
+  tr.innerHTML = `
+    <td><div class="set-num">${setNum}</div></td>
+    <td class="col-weight"><input type="number" inputmode="decimal" placeholder="lbs" value="${data && data.weight ? data.weight : ''}"></td>
+    <td class="col-reps"><input type="number" inputmode="numeric" placeholder="reps" value="${data && data.reps ? data.reps : ''}"></td>
+    <td class="col-remove"><button class="remove-set" type="button" title="Remove set">×</button></td>
+  `;
+  tr.querySelector('.remove-set').addEventListener('click', () => {
+    tr.remove();
+    renumberSets(tbody);
+  });
+  tbody.appendChild(tr);
+}
+
+function renumberSets(tbody){
+  tbody.querySelectorAll('.set-row').forEach((row, idx) => {
+    row.querySelector('.set-num').textContent = idx + 1;
+  });
+}
+
+async function saveCurrentLog(silent){
+  const blocks = document.querySelectorAll('.exercise-block');
+  const data = {};
+  blocks.forEach(block => {
+    const name = block.dataset.exercise;
+    const rows = block.querySelectorAll('.set-row');
+    const sets = [];
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const weight = inputs[0].value;
+      const reps = inputs[1].value;
+      if (weight !== '' || reps !== '') {
+        sets.push({ weight: weight || null, reps: reps || null });
+      }
+    });
+    if (sets.length) data[name] = sets;
+  });
+
+  const key = `log:${currentType}:${currentDate}`;
+  try {
+    await window.storage.set(key, JSON.stringify(data), false);
+    logCache = data;
+    if (!silent) {
+      const status = document.getElementById('saveStatus');
+      status.classList.add('show');
+      setTimeout(() => status.classList.remove('show'), 1800);
+    }
+  } catch(e) {
+    console.error('save failed', e);
+    if (!silent) alert('Save failed — please try again.');
+  }
+}
+
+async function showHistory(){
+  const panel = document.getElementById('historyPanel');
+  const list = document.getElementById('historyList');
+  document.getElementById('historyTitle').textContent = `${TYPE_META[currentType].label} — History`;
+  panel.classList.toggle('show');
+  if (!panel.classList.contains('show')) return;
+
+  list.innerHTML = '<div class="empty-history">Loading…</div>';
+  try {
+    const res = await window.storage.list(`log:${currentType}:`, false);
+    if (!res || !res.keys || !res.keys.length) {
+      list.innerHTML = '<div class="empty-history">No logged sessions yet.</div>';
+      return;
+    }
+    const dates = res.keys.map(k => k.split(':')[2]).filter(Boolean).sort().reverse();
+    list.innerHTML = '';
+    for (const d of dates) {
+      const r = await window.storage.get(`log:${currentType}:${d}`, false);
+      let summary = '';
+      if (r && r.value) {
+        const data = JSON.parse(r.value);
+        const exNames = Object.keys(data);
+        summary = exNames.slice(0,3).map(n => n).join(', ') + (exNames.length > 3 ? ` +${exNames.length-3} more` : '');
+      }
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      entry.innerHTML = `<div class="h-date">${d}</div><div class="h-summary">${summary || 'No sets recorded'}</div>`;
+      entry.addEventListener('click', () => {
+        document.getElementById('logDate').value = d;
+        currentDate = d;
+        panel.classList.remove('show');
+        loadLogForDate();
+      });
+      list.appendChild(entry);
+    }
+  } catch(e) {
+    list.innerHTML = '<div class="empty-history">Could not load history.</div>';
+  }
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('logDate').value = todayISO();
+  currentDate = todayISO();
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.type));
+  });
+
+  document.getElementById('logDate').addEventListener('change', async (e) => {
+    await autoSaveIfNeeded();
+    currentDate = e.target.value;
+    document.getElementById('historyPanel').classList.remove('show');
+    await loadLogForDate();
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', saveCurrentLog);
+  document.getElementById('historyBtn').addEventListener('click', showHistory);
+
+  await loadSchedule();
+  await loadLogForDate();
+});
+</script>
+
+</body>
+</html>
